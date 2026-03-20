@@ -35,18 +35,18 @@ stp1_UC_br<-UC_br %>%  #3122
       categoria=="Área de Proteção Ambiental" ~ "APA", 
       categoria=="Área de Relevante Interesse Ecológico" ~ "ARIE", 
       categoria%in%c("Estação Ecológica",
-                     "Monumento Natural",                       
                      "Parque",                                  
-                     "Refúgio de Vida Silvestre",               
-                     "Reserva Biológica" ) ~ "PI", 
-      categoria%in%c("Floresta",
-                     "Reserva de Desenvolvimento Sustentável",  
-                     "Reserva de Fauna",                        
-                     "Reserva Extrativista") ~ "US",
+                     "Reserva Biológica" ) ~ "PI_hr", 
+      categoria%in%c("Monumento Natural",                       
+                     "Refúgio de Vida Silvestre") ~ "PI_lr", 
+      categoria%in%c("Reserva de Desenvolvimento Sustentável",  
+                     "Reserva Extrativista") ~ "US_cd",
+      categoria=="Floresta" ~ "US_FLONA",
+      categoria=="Reserva de Fauna" ~ "US_RF",
       categoria=="Reserva Particular do Patrimônio Natural" ~ "RPPN",
    )) %>% 
-  filter(cria_ano>=1990 & cria_ano<=2024) %>% # 2,793
-  filter(new_cat!="RPPN") %>% # 1,566
+  filter(cria_ano>=1990) %>% # 2815
+  filter(!new_cat%in%c("RPPN", "ARIE")) %>% # 1487
   glimpse
 
 # name duplicated ----
@@ -102,10 +102,10 @@ stp2_UC_br<-stp1_UC_br %>%
   #filter(new_code=="UC_591") %>% # works well
   glimpse
 
-# solving Ucs == marinho ----
+# solving Ucs == marinho and Duplicated biomes ----
 stp3_UC_br<-stp2_UC_br %>% 
   mutate(
-    only_marinha = ifelse(
+    only_marinha = if_else(
       !is.na(marinho) & 
         is.na(amazonia) & 
         is.na(caatinga) & 
@@ -116,34 +116,215 @@ stp3_UC_br<-stp2_UC_br %>%
       "only_ocean", "no_worries"
     )) %>% 
   filter(only_marinha!="only_ocean") %>% #11 
-  select(-only_marinha, -amazonia:-situacao) %>% 
+  mutate(multi_bioma = if_else(
+    rowSums(!is.na(across(c(amazonia, caatinga, 
+                            cerrado, matlantica, 
+                            pampa, pantanal, 
+                            marinho)))) > 1, 1, 0)) %>% 
+  filter(multi_bioma!=1) %>% #221
+  rowwise() %>%
+  mutate(biomas =paste(
+    names(pick(amazonia:marinho))[!is.na(c_across(amazonia:marinho))],
+    collapse = "_"), 
+    biomas=case_when(
+      is.na(marinho) & 
+        is.na(amazonia) & 
+        is.na(caatinga) & 
+        is.na(cerrado) & 
+        is.na(matlantica) & 
+        is.na(pampa) & 
+        is.na(pantanal) ~ "issue", 
+      TRUE ~ biomas
+    )) %>%
+  ungroup() %>% 
+  select(-only_marinha, -multi_bioma,
+         -amazonia:-situacao) %>% 
   glimpse #1,551
 
-# counting PA by biome
-br_biomes<-read_biomes(cache = F) %>% 
-  select(name_biome)
+
+stp4_UC_br<-stp3_UC_br %>% 
+  mutate(testbm=st_intersects(., read_biomes(cache = F)),
+         testbm=as.character(testbm),
+         dum_bm2=case_when(
+           testbm%in%c("1", "c(1, 7)")~"amazonia",
+           testbm%in%c("2", "c(2, 7)")~"caatinga",
+           testbm%in%c("3", "c(3, 7)")~"cerrado",
+           testbm%in%c("4", "c(4, 7)")~ "matlantica",
+           testbm%in%c("5", "c(5, 7)")~"pampa",
+           testbm%in%c("6", "c(6, 7)")~"pantanal",
+           testbm=="7"~"Marinho",
+           TRUE ~ "duplicated"
+         )) %>%
+  filter(dum_bm2!="duplicated") %>% #3
+  mutate(biome=if_else(biomas=="issue",
+                       dum_bm2, biomas)) %>% 
+  select(-biomas:-dum_bm2) %>% 
+  glimpse
   
-st_intersection(stp3_UC_br, br_biomes) %>% 
+  
+# counting (wide PA categories) by biome
+stp4_UC_br %>%
+  filter(cria_ano>=1991) %>% #1157
+  mutate(dum_yr_class=factor(case_when(
+    cria_ano>=1991 & cria_ano<=1995~"91_95",
+    cria_ano>=1996 & cria_ano<=2000~"96_00",
+    cria_ano>=2001 & cria_ano<=2005~"01_05", 
+    cria_ano>=2006 & cria_ano<=2010~"06_10", 
+    cria_ano>=2011 & cria_ano<=2015~"11_15",
+    cria_ano>=2016 & cria_ano<=2020~"16_20", 
+    TRUE ~ "21-25"), 
+    levels=c("91_95", "96_00", "01_05", "06_10",
+             "11_15", "16_20", "21-25"))) %>% 
+  st_drop_geometry() %>% 
+  group_by(biome, esfera, new_cat, dum_yr_class
+           ) %>% 
+  summarise(n_uc=n_distinct(new_code)) %>% 
+  print(n = 400)
+
+
+stp4_UC_br %>% 
+  mutate(
+    new_cat_2=case_when(
+      categoria=="Área de Proteção Ambiental" ~ "APA", 
+      categoria%in%c("Estação Ecológica",
+                     "Parque",                                  
+                     "Reserva Biológica",
+                     "Monumento Natural",                       
+                     "Refúgio de Vida Silvestre") ~ "PI", 
+      categoria%in%c("Reserva de Desenvolvimento Sustentável",  
+                     "Reserva Extrativista", 
+                     "Floresta", 
+                     "Reserva de Fauna") ~ "US")) %>% 
+  filter(cria_ano>=1991) %>% #1157
+  mutate(dum_yr_class=factor(case_when(
+    cria_ano>=1991 & cria_ano<=1995~"91_95",
+    cria_ano>=1996 & cria_ano<=2000~"96_00",
+    cria_ano>=2001 & cria_ano<=2005~"01_05", 
+    cria_ano>=2006 & cria_ano<=2010~"06_10", 
+    cria_ano>=2011 & cria_ano<=2015~"11_15",
+    cria_ano>=2016 & cria_ano<=2020~"16_20", 
+    TRUE ~ "21-25"), 
+    levels=c("91_95", "96_00", "01_05", "06_10",
+             "11_15", "16_20", "21-25"))) %>% 
+  st_drop_geometry() %>% 
+  group_by(biome, esfera, new_cat_2, dum_yr_class
+  ) %>% 
+  summarise(n_uc=n_distinct(new_code)) %>% 
+  print(n = 300)
+
+
+stp4_UC_br %>% 
+  mutate(
+    new_cat_2=case_when(
+      categoria=="Área de Proteção Ambiental" ~ "APA", 
+      categoria%in%c("Estação Ecológica",
+                     "Parque",                                  
+                     "Reserva Biológica",
+                     "Monumento Natural",                       
+                     "Refúgio de Vida Silvestre") ~ "PI", 
+      categoria%in%c("Reserva de Desenvolvimento Sustentável",  
+                     "Reserva Extrativista", 
+                     "Floresta", 
+                     "Reserva de Fauna") ~ "US")) %>% 
+  filter(cria_ano>=1991) %>% #1157
+  mutate(dum_yr_class=factor(case_when(
+    cria_ano>=1991 & cria_ano<=1995~"91_95",
+    cria_ano>=1996 & cria_ano<=2000~"96_00",
+    cria_ano>=2001 & cria_ano<=2005~"01_05", 
+    cria_ano>=2006 & cria_ano<=2010~"06_10", 
+    cria_ano>=2011 & cria_ano<=2015~"11_15",
+    cria_ano>=2016 & cria_ano<=2020~"16_20", 
+    TRUE ~ "21-25"), 
+    levels=c("91_95", "96_00", "01_05", "06_10",
+             "11_15", "16_20", "21-25"))) %>% 
+  st_drop_geometry() %>% 
+  group_by(biome, new_cat_2, dum_yr_class
+  ) %>% 
+  summarise(n_uc=n_distinct(new_code)) %>% 
+  print(n = 300)
+  
+
+# saving 
+
+UC_br_end<-stp4_UC_br %>% 
+  mutate(
+    pa_type=case_when(
+      categoria=="Área de Proteção Ambiental" ~ "APA", 
+      categoria%in%c("Estação Ecológica",
+                     "Parque",                                  
+                     "Reserva Biológica",
+                     "Monumento Natural",                       
+                     "Refúgio de Vida Silvestre") ~ "PI", 
+      categoria%in%c("Reserva de Desenvolvimento Sustentável",  
+                     "Reserva Extrativista", 
+                     "Floresta", 
+                     "Reserva de Fauna") ~ "US")) %>% 
+  filter(cria_ano>=1991) %>% #dim()#1223
+  filter(!biome%in%c("Marinho", "pampa", "pantanal")) %>% #dim()#1204
+  mutate(first_year_t=case_when(
+  biome%in%c("caatinga", "cerrado") &
+    pa_type == "US" ~ "16", 
+  #gruping into 10 years
+  biome%in%c("amazonia", "caatinga") &
+    pa_type == "APA" &
+    cria_ano>=1991 & cria_ano<=2000 ~ "1991", 
+  biome%in%c("amazonia", "caatinga") & 
+    pa_type == "APA" &
+    cria_ano>=2001 & cria_ano<=2010 ~ "2001", 
+  biome%in%c("amazonia", "caatinga") & 
+    pa_type == "APA" &
+    cria_ano>=2011 & cria_ano<=2020 ~ "2011", 
+  #--
+  biome=="matlantica" & 
+    pa_type == "US" &
+    cria_ano<= 1995 ~ "2",
+  biome=="matlantica" &
+    pa_type == "US" &
+    cria_ano>=1996 & cria_ano<=2005 ~ "1996", 
+  biome=="matlantica" & 
+    pa_type == "US" &
+    cria_ano>=2006 & cria_ano<=2015 ~ "2006", 
+  biome=="matlantica" & 
+    pa_type == "US" &
+    cria_ano>=2016 ~ "0",
+  # fixing 5 years grouping
+  biome=="amazonia" & 
+    pa_type == "PI" &
+    cria_ano<=1995 ~ "4", 
+  biome=="amazonia" & 
+    pa_type == "PI" &
+    cria_ano>=2011 & cria_ano<=2015~ "4",
+  #--
+  biome=="amazonia" & 
+    pa_type == "US" &
+    cria_ano>=2011 & cria_ano<=2015~ "2",
+  #--
+  biome=="caatinga" & 
+    pa_type == "PI" &
+    cria_ano<=1995 ~ "1",
+  #--
+  biome=="cerrado" & 
+    pa_type == "APA" &
+    cria_ano<=1995 ~ "3",
+  biome=="cerrado" & 
+    pa_type == "APA" &
+    cria_ano>=2006 & cria_ano<=2015~ "5",
+  # general
+  cria_ano>=1991 & cria_ano<=1995~"1991",
+  cria_ano>=1996 & cria_ano<=2000~"1996",
+  cria_ano>=2001 & cria_ano<=2005~"2001", 
+  cria_ano>=2006 & cria_ano<=2010~"2006", 
+  cria_ano>=2011 & cria_ano<=2015~"2011",
+  cria_ano>=2016 & cria_ano<=2020~"2016", 
+  TRUE ~ "0"), 
+  across(c(new_code, biome, pa_type), 
+         ~as.factor(.))) %>%
+  select(-new_cat) %>%
+  filter(!first_year_t%in%c("1", "2", "3",
+                         "4", "5", "16")) %>% #1167 (lose 37)
+  mutate(first_year_t=as.integer(first_year_t)) %>% 
   glimpse
 
-# counting 
-stp3_UC_br %>%
-  st_drop_geometry() %>% 
-  group_by(esfera, new_cat, categoria) %>% 
-  summarise(n_uc=n_distinct(new_code)) %>% 
-  print(n = 50)
+#crs=4674
+write_sf(UC_br_end, "Outputs/PA_br.gpkg")
 
-stp3_UC_br %>%
-  st_drop_geometry() %>% 
-  group_by(esfera, new_cat, categoria, 
-           pl_manejo) %>% 
-  summarise(n_uc=n_distinct(new_code)) %>% 
-  print(n = 200)
-
-stp3_UC_br %>%
-  st_drop_geometry() %>% 
-  group_by(esfera, new_cat, categoria, 
-           co_gestor) %>% 
-  summarise(n_uc=n_distinct(new_code)) %>% 
-  print(n = 200)
-  
