@@ -54,7 +54,8 @@ for (i in seq_along(LU)) {
   r_urb <- ifel(r_i==24, 1, NA)
   r_urb_proj <- project(
     r_urb, "EPSG:5880",
-    filename = paste0("Outputs/temp_proj_", nm_lu, ".tif"),
+    filename = paste0("Outputs/temporarios/temp_proj_", 
+                      nm_lu, ".tif"),
     overwrite = TRUE,
     wopt = list(gdal = c("COMPRESS=LZW"))) 
   
