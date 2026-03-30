@@ -60,7 +60,7 @@ PA_ee<-ee$FeatureCollection("projects/test-arthurbarrosar/assets/PA_br_91_25")
 area_mpb<-df_class4_6$map(
   ee_utils_pyfunc(function(dt) {
     dt_area <- dt$multiply(ee$Image$pixelArea()) #trasnform from pixels to meters
-    
+    # in m²
     ar_m <- dt_area$reduceRegions(
       collection = PA_ee,
       reducer = ee$Reducer$sum(), #sum each pixel value (now in meters)
@@ -84,3 +84,28 @@ task <- ee_table_to_drive(
 #ee_user_info()
 task$start()
 
+#after it already, i will manually download it. 
+library(tidyverse)
+defor_by_yr<-read_csv("Outputs/PA_defor_allyears.csv") %>%
+  select(new_cod, cria_an, frst_y_, year, sum, 
+         biome, pa_type) %>% 
+  rename(new_code=new_cod,
+         cria_ano=cria_an,
+         first_year_t=frst_y_, 
+         deforestation=sum) %>% 
+  mutate(year=str_remove(year, "classification_")) %>% 
+  group_by(biome, pa_type) %>% 
+  group_split()
+
+saveRDS(list(
+  "AMZ_APA"=defor_by_yr[[1]],
+  "AMZ_PI"=defor_by_yr[[2]],
+  "AMZ_US"=defor_by_yr[[3]],
+  "CAT_APA"=defor_by_yr[[4]],
+  "CAT_PI"=defor_by_yr[[5]],
+  "CER_APA"=defor_by_yr[[6]],
+  "CER_PI"=defor_by_yr[[7]],
+  "MAT_APA"=defor_by_yr[[8]],
+  "MAT_PI"=defor_by_yr[[9]],
+  "MAT_US"=defor_by_yr[[10]]
+  ), file = "Outputs/PA_defor.rds")
