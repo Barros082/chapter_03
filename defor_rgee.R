@@ -4,9 +4,8 @@
 
 # Starting GEE
 library(reticulate)
-Sys.setenv(
-  RETICULATE_PYTHON = "C:/miniconda3/python.exe",
-  EARTHENGINE_CONFIG_DIR = "C:/miniconda3/ee_config")
+use_python("C:/miniconda3/envs/rgee_env/python.exe",
+           required = TRUE)
 library(rgee)
 ee_Initialize(user = "arthur.barros.ar@gmail.com", 
               drive = TRUE)

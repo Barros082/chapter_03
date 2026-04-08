@@ -5,13 +5,11 @@
 # Starting GEE
 library(reticulate)
 #install_miniconda("C:/miniconda3")
-Sys.setenv(
-  RETICULATE_PYTHON = "C:/miniconda3/python.exe",
-  EARTHENGINE_CONFIG_DIR = "C:/miniconda3/ee_config")
-#py_config()
-#py_install(c("earthengine-api", 
-#             "numpy", "pandas"), pip = TRUE)
-#py_module_available("ee")
+#conda_create("rgee_env", packages = "python=3.10")
+use_python("C:/miniconda3/envs/rgee_env/python.exe",
+           required = TRUE)
+#py_install(c("earthengine-api==1.6.11", "numpy",
+#             "pandas"), pip = TRUE)
 
 library(rgee)
 ee_Initialize(user = "arthur.barros.ar@gmail.com", 
@@ -29,7 +27,12 @@ bd_yr_name<-c(
   "classification_2000",
   "classification_2005",
   "classification_2010",
-  "classification_2015")
+  "classification_2015", 
+  "classification_2020", 
+  "classification_2021",
+  "classification_2022",
+  "classification_2023", 
+  "classification_2024")
 
 lu_filtered<-lu_mapbiomas$select(bd_yr_name)
 #test1<-lu_filtered$bandNames()
@@ -67,16 +70,24 @@ library(sf)
 sf_use_s2(FALSE)
 
 centroids_ee <- read_sf("Outputs/PA_br.gpkg") %>% #crs:4674 (mapbiomas standard)
+  #fixing first_year_treat column
+  mutate(first_year_t=if_else(first_year_t==0, 
+                              cria_ano, first_year_t)) %>%
   st_transform("EPSG:5880") %>% 
   st_centroid() %>% 
   dplyr::select(new_code, first_year_t) %>% 
   mutate(year_match = case_when(
-    first_year_t %in% c(1991, 0) ~ "0_classification_1990",
+    first_year_t == 1991 ~ "0_classification_1990",
     first_year_t == 1996 ~ "1_classification_1995",
     first_year_t == 2001 ~ "2_classification_2000",
     first_year_t == 2006 ~ "3_classification_2005",
     first_year_t == 2011 ~ "4_classification_2010",
-    first_year_t == 2016 ~ "5_classification_2015"
+    first_year_t == 2016 ~ "5_classification_2015", 
+    first_year_t == 2021 ~ "6_classification_2020",
+    first_year_t == 2022 ~ "7_classification_2021",
+    first_year_t == 2023 ~ "8_classification_2022",
+    first_year_t == 2024 ~ "9_classification_2023",
+    first_year_t == 2025 ~ "10_classification_2024"
   )) %>% 
   sf_as_ee()
 

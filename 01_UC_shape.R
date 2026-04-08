@@ -286,7 +286,7 @@ UC_br_end<-stp4_UC_br %>%
     cria_ano>=2006 & cria_ano<=2015 ~ "2006", 
   biome=="matlantica" & 
     pa_type == "US" &
-    cria_ano>=2016 ~ "0",
+    cria_ano>=2016 ~ "2",
   # fixing 5 years grouping
   biome=="amazonia" & 
     pa_type == "PI" &
