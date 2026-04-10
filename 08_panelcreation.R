@@ -36,7 +36,8 @@ PA_list<-lapply(readRDS("Outputs/PA_defor.rds") %>%
                                 cria_ano, first_year_t)) %>% 
     left_join(PA) %>% 
     dplyr::filter(!first_year_t>=2024) %>% 
-    dplyr::filter(year!=2024)
+    dplyr::filter(year!=2024) %>% 
+    mutate(year=as.numeric(year))
   
   print(summary(as.factor(x_done$first_year_t)))
   DataExplorer::plot_missing(x_done)
@@ -58,7 +59,7 @@ for (i in seq_along(PA_list)) {
   PA_panel[[i_nm_pm]]<-pm
 }
 
-
-saveRDS(PA_panel, "Outputs/PA_br_panel.rds")
+saveRDS(PA_list, "Outputs/PA_br_panel.rds") #useful for DID 
+saveRDS(PA_panel, "Outputs/PA_br_panelTRUE.rds") #useful to plm/fixest(sunab)
 
 
