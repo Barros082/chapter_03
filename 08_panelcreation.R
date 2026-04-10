@@ -22,19 +22,21 @@ PA<-read_sf("Outputs/PA_br.gpkg") %>%
                 cria_ano:esfera, PA_area, 
                 dist_agr:relative_pop, 
                 first_year_t) %>% #dim() #1161
+  st_drop_geometry() %>% 
   glimpse 
 
 #summary(as.factor(PA$first_year_t))
 #PA %>% filter(first_year_t==0) %>% View()
 
-PA_list<-lapply(readRDS("Outputs/PA_defor.rds"),
+PA_list<-lapply(readRDS("Outputs/PA_defor.rds") %>% 
+                  st_drop_geometry(),
                 function(x){
   x_done<-x %>% 
     mutate(first_year_t=if_else(first_year_t==0, 
                                 cria_ano, first_year_t)) %>% 
     left_join(PA) %>% 
-    filter(!first_year_t>=2024) %>% 
-    filter(year!=2024)
+    dplyr::filter(!first_year_t>=2024) %>% 
+    dplyr::filter(year!=2024)
   
   print(summary(as.factor(x_done$first_year_t)))
   DataExplorer::plot_missing(x_done)
@@ -46,8 +48,7 @@ PA_list<-lapply(readRDS("Outputs/PA_defor.rds"),
 
 PA_panel<-list()
 for (i in seq_along(PA_list)) {
-  i_pm<-PA_list[[i]] %>% 
-    st_drop_geometry()
+  i_pm<-PA_list[[i]]
   i_nm_pm<-names(PA_list)[i]
   pm<-pdata.frame(i_pm, index = c("new_code", 
                               "year"))
@@ -56,6 +57,7 @@ for (i in seq_along(PA_list)) {
   
   PA_panel[[i_nm_pm]]<-pm
 }
+
 
 saveRDS(PA_panel, "Outputs/PA_br_panel.rds")
 
