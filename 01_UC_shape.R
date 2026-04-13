@@ -226,20 +226,19 @@ stp4_UC_br %>%
                      "Reserva Extrativista", 
                      "Floresta", 
                      "Reserva de Fauna") ~ "US")) %>% 
-  filter(cria_ano>=1991) %>% #1157
+  filter(cria_ano>=1996 &
+           cria_ano<=2024) %>% #dim()#1117
   mutate(dum_yr_class=factor(case_when(
-    cria_ano>=1991 & cria_ano<=1995~"91_95",
     cria_ano>=1996 & cria_ano<=2000~"96_00",
     cria_ano>=2001 & cria_ano<=2005~"01_05", 
     cria_ano>=2006 & cria_ano<=2010~"06_10", 
     cria_ano>=2011 & cria_ano<=2015~"11_15",
     cria_ano>=2016 & cria_ano<=2020~"16_20", 
-    TRUE ~ "21-25"), 
-    levels=c("91_95", "96_00", "01_05", "06_10",
-             "11_15", "16_20", "21-25"))) %>% 
+    TRUE ~ "21-24"), 
+    levels=c("96_00", "01_05", "06_10",
+             "11_15", "16_20", "21-24"))) %>% 
   st_drop_geometry() %>% 
-  group_by(biome, new_cat_2, dum_yr_class
-  ) %>% 
+  group_by(biome, new_cat_2, dum_yr_class) %>% 
   summarise(n_uc=n_distinct(new_code)) %>% 
   print(n = 300)
   
@@ -259,72 +258,55 @@ UC_br_end<-stp4_UC_br %>%
                      "Reserva Extrativista", 
                      "Floresta", 
                      "Reserva de Fauna") ~ "US")) %>% 
-  filter(cria_ano>=1991) %>% #dim()#1223
-  filter(!biome%in%c("Marinho", "pampa", "pantanal")) %>% #dim()#1204
+  filter(cria_ano>=1996 &
+           cria_ano<=2024) %>% #dim()#1117
+  filter(!biome%in%c("Marinho", "pampa",
+                     "pantanal")) %>% #dim()#1100
   mutate(first_year_t=case_when(
   biome%in%c("caatinga", "cerrado") &
-    pa_type == "US" ~ "16", 
+    pa_type == "US" ~ "exclude", 
   #gruping into 10 years
-  biome%in%c("amazonia", "caatinga") &
+  biome=="amazonia" &
     pa_type == "APA" &
-    cria_ano>=1991 & cria_ano<=2000 ~ "1991", 
-  biome%in%c("amazonia", "caatinga") & 
+    cria_ano>=1996 & cria_ano<=2005 ~ "1996",
+  biome=="amazonia" &
     pa_type == "APA" &
-    cria_ano>=2001 & cria_ano<=2010 ~ "2001", 
-  biome%in%c("amazonia", "caatinga") & 
+    cria_ano>=2006 & cria_ano<=2015 ~ "2006", 
+  biome=="amazonia" &
     pa_type == "APA" &
-    cria_ano>=2011 & cria_ano<=2020 ~ "2011", 
-  #--
-  biome=="matlantica" & 
-    pa_type == "US" &
-    cria_ano<= 1995 ~ "2",
+    cria_ano>=2016 ~ "0", 
   biome=="matlantica" &
     pa_type == "US" &
-    cria_ano>=1996 & cria_ano<=2005 ~ "1996", 
-  biome=="matlantica" & 
+    cria_ano>=1996 & cria_ano<=2005 ~ "1996",
+  biome=="matlantica" &
     pa_type == "US" &
-    cria_ano>=2006 & cria_ano<=2015 ~ "2006", 
-  biome=="matlantica" & 
+    cria_ano>=2006 & cria_ano<=2015 ~ "2006",
+  biome=="matlantica" &
     pa_type == "US" &
-    cria_ano>=2016 ~ "2",
-  # fixing 5 years grouping
-  biome=="amazonia" & 
-    pa_type == "PI" &
-    cria_ano<=1995 ~ "4", 
-  biome=="amazonia" & 
-    pa_type == "PI" &
-    cria_ano>=2011 & cria_ano<=2015~ "4",
-  #--
-  biome=="amazonia" & 
+    cria_ano>=2016 ~ "0",
+  # removing unique years class
+  biome=="amazonia" &
     pa_type == "US" &
-    cria_ano>=2011 & cria_ano<=2015~ "2",
-  #--
-  biome=="caatinga" & 
-    pa_type == "PI" &
-    cria_ano<=1995 ~ "1",
-  #--
-  biome=="cerrado" & 
+    cria_ano>=2011 & cria_ano<=2015 ~ "exclude",
+  biome=="cerrado" &
     pa_type == "APA" &
-    cria_ano<=1995 ~ "3",
-  biome=="cerrado" & 
-    pa_type == "APA" &
-    cria_ano>=2006 & cria_ano<=2015~ "5",
+    cria_ano>=2011 & cria_ano<=2015 ~ "exclude",
   # general
-  cria_ano>=1991 & cria_ano<=1995~"1991",
   cria_ano>=1996 & cria_ano<=2000~"1996",
   cria_ano>=2001 & cria_ano<=2005~"2001", 
   cria_ano>=2006 & cria_ano<=2010~"2006", 
   cria_ano>=2011 & cria_ano<=2015~"2011",
   cria_ano>=2016 & cria_ano<=2020~"2016", 
-  TRUE ~ "0"), 
+  cria_ano>=2021~ "0",
+  TRUE ~ NA), 
   across(c(new_code, biome, pa_type), 
          ~as.factor(.))) %>%
   select(-new_cat) %>%
-  filter(!first_year_t%in%c("1", "2", "3",
-                         "4", "5", "16")) %>% #1167 (lose 37)
+  filter(first_year_t!="exclude") %>% #dim()#1082 (lose 18)
   mutate(first_year_t=as.integer(first_year_t)) %>% 
   glimpse
 
 #crs=4674
-write_sf(UC_br_end, "Outputs/PA_br.gpkg")
+#dir.create("Outputs/matching_did")
+write_sf(UC_br_end, "Outputs/matching_did/PA_br.gpkg")
 
