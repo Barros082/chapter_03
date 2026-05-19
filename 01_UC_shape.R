@@ -162,8 +162,21 @@ stp4_UC_br<-stp3_UC_br %>%
   glimpse
   
   
-# counting (wide PA categories) by biome
-stp4_UC_br %>%
+# counting (wide PA categories) by biome ----
+
+stp4_UC_br %>% 
+  mutate(
+    new_cat_2=case_when(
+      categoria=="Área de Proteção Ambiental" ~ "APA", 
+      categoria%in%c("Estação Ecológica",
+                     "Parque",                                  
+                     "Reserva Biológica",
+                     "Monumento Natural",                       
+                     "Refúgio de Vida Silvestre") ~ "PI", 
+      categoria%in%c("Reserva de Desenvolvimento Sustentável",  
+                     "Reserva Extrativista", 
+                     "Floresta", 
+                     "Reserva de Fauna") ~ "US")) %>% 
   filter(cria_ano>=1991) %>% #1157
   mutate(dum_yr_class=factor(case_when(
     cria_ano>=1991 & cria_ano<=1995~"91_95",
@@ -174,157 +187,311 @@ stp4_UC_br %>%
     cria_ano>=2016 & cria_ano<=2020~"16_20", 
     TRUE ~ "21-25"), 
     levels=c("91_95", "96_00", "01_05", "06_10",
-             "11_15", "16_20", "21-25"))) %>% 
+             "11_15", "16_20", "21-25")), 
+    across(.cols=c(pl_manejo, co_gestor), 
+           ~ if_else(.=="Sem informação", "Não", .))) %>%
   st_drop_geometry() %>% 
-  group_by(biome, esfera, new_cat, dum_yr_class
+  group_by(biome, new_cat_2, #esfera, 
+           pl_manejo, dum_yr_class) %>% 
+  summarise(n_uc=n_distinct(new_code)) %>% 
+  print(n = 300)
+
+
+stp4_UC_br %>% 
+  mutate(
+    new_cat_2=case_when(
+      categoria=="Área de Proteção Ambiental" ~ "APA", 
+      categoria%in%c("Estação Ecológica",
+                     "Parque",                                  
+                     "Reserva Biológica",
+                     "Monumento Natural",                       
+                     "Refúgio de Vida Silvestre") ~ "PI", 
+      categoria%in%c("Reserva de Desenvolvimento Sustentável",  
+                     "Reserva Extrativista", 
+                     "Floresta", 
+                     "Reserva de Fauna") ~ "US")) %>% 
+  filter(cria_ano>=1991) %>% #1157
+  mutate(dum_yr_class=factor(case_when(
+    cria_ano>=1991 & cria_ano<=1995~"91_95",
+    cria_ano>=1996 & cria_ano<=2000~"96_00",
+    cria_ano>=2001 & cria_ano<=2005~"01_05", 
+    cria_ano>=2006 & cria_ano<=2010~"06_10", 
+    cria_ano>=2011 & cria_ano<=2015~"11_15",
+    cria_ano>=2016 & cria_ano<=2020~"16_20", 
+    TRUE ~ "21-25"), 
+    levels=c("91_95", "96_00", "01_05", "06_10",
+             "11_15", "16_20", "21-25")), 
+    across(.cols=c(pl_manejo, co_gestor), 
+           ~ if_else(.=="Sem informação", "Não", .))) %>%
+  st_drop_geometry() %>% 
+  group_by(biome, new_cat_2, #esfera, 
+           pl_manejo, #dum_yr_class
+           co_gestor) %>% 
+  summarise(n_uc=n_distinct(new_code)) %>% 
+  print(n = 300)
+
+
+stp4_UC_br %>% 
+  mutate(
+    new_cat_2=case_when(
+      categoria=="Área de Proteção Ambiental" ~ "APA", 
+      categoria%in%c("Estação Ecológica",
+                     "Parque",                                  
+                     "Reserva Biológica",
+                     "Monumento Natural",                       
+                     "Refúgio de Vida Silvestre") ~ "PI", 
+      categoria%in%c("Reserva de Desenvolvimento Sustentável",  
+                     "Reserva Extrativista", 
+                     "Floresta", 
+                     "Reserva de Fauna") ~ "US")) %>% 
+  filter(cria_ano>=1991) %>% #1157
+  mutate(dum_yr_class=factor(case_when(
+    cria_ano>=1991 & cria_ano<=1995~"91_95",
+    cria_ano>=1996 & cria_ano<=2000~"96_00",
+    cria_ano>=2001 & cria_ano<=2005~"01_05", 
+    cria_ano>=2006 & cria_ano<=2010~"06_10", 
+    cria_ano>=2011 & cria_ano<=2015~"11_15",
+    cria_ano>=2016 & cria_ano<=2020~"16_20", 
+    TRUE ~ "21-25"), 
+    levels=c("91_95", "96_00", "01_05", "06_10",
+             "11_15", "16_20", "21-25")), 
+    across(.cols=c(pl_manejo, co_gestor), 
+           ~ if_else(.=="Sem informação", "Não", .))) %>%
+  st_drop_geometry() %>% 
+  group_by(biome, new_cat_2, esfera, 
+           pl_manejo, #dum_yr_class
+           #co_gestor
            ) %>% 
+  summarise(n_uc=n_distinct(new_code)) %>% 
+  print(n = 300)
+
+#write.csv(stp4_UC_br %>% 
+#            st_drop_geometry, "Outputs/tocollect_PMCG_yr.csv")
+
+stp5_UC_br <-read.csv("Outputs/collected_PMCG_yr.csv") %>% 
+  #DataExplorer::plot_missing()
+  filter(!uc_id%in%c(
+    384, 2906, 2941, 1506, 1997, 2558, 
+    2750, 1763, 10409, 15997, 16872, 
+    17096,  21017, 21673, 21926, 
+    22407, 22444, 22648, 22990, 23259
+  )) %>% # -20 UCS 
+  filter(usavel_e_condicao_praPM!="excluir") %>% #-25 UCS
+  mutate(
+    new_pl_manejo=if_else(
+      usavel_e_condicao_praPM%in%c("Sim", 
+                                   "Sim_2015",
+                                   "Sim_2002",
+                                   "Sim_2013"),
+      "Sim", pl_manejo),
+    new_pl_manejo=case_when(
+      new_pl_manejo=="Sem informação" ~ "Não",
+      TRUE ~ new_pl_manejo),
+    usavel_e_condicao_praPM=case_when(
+      usavel_e_condicao_praPM=="Sim_2015" ~ "2015",
+      usavel_e_condicao_praPM=="Sim_2002" ~ "2002",
+      usavel_e_condicao_praPM=="Sim_2013" ~ "2013",
+      TRUE ~ usavel_e_condicao_praPM),
+    new_cria_ano=case_when(
+      !usavel_e_condicao_praPM%in%c("s", "Sim") ~ as.integer(usavel_e_condicao_praPM), 
+      TRUE ~ cria_ano),
+    new_cat=case_when(
+      categoria=="Área de Proteção Ambiental" ~ "APA", 
+      categoria%in%c("Estação Ecológica",
+                     "Parque",                                  
+                     "Reserva Biológica",
+                     "Monumento Natural",                       
+                     "Refúgio de Vida Silvestre") ~ "PI", 
+      categoria%in%c("Reserva de Desenvolvimento Sustentável",  
+                     "Reserva Extrativista", 
+                     "Floresta", 
+                     "Reserva de Fauna") ~ "US"),
+    yr_PM=str_remove(yr_PM, "X_"),
+    yr_PM=if_else(yr_PM=="", 
+                  0, as.integer(yr_PM)),
+    pretreat_period=case_when(
+      yr_PM==0 ~ 9999,
+      TRUE ~ new_cria_ano-yr_PM)
+    ) %>% 
+  #filter(is.na(new_cria_ano)) %>% glimpse
+  select(-X, -cria_ano:-co_gestor,
+         -yr_CG:-motivo) %>% 
+  glimpse
+
+stp5_UC_br %>%  summary()
+
+stp5_UC_br %>% 
+  group_by(new_pl_manejo, yr_PM) %>% 
   summarise(n_uc=n_distinct(new_code)) %>% 
   print(n = 400)
 
 
-stp4_UC_br %>% 
+#grouping by three
+stp5_UC_br %>% #1204
+  #(unless two pos and pre - period)
   mutate(
-    new_cat_2=case_when(
-      categoria=="Área de Proteção Ambiental" ~ "APA", 
-      categoria%in%c("Estação Ecológica",
-                     "Parque",                                  
-                     "Reserva Biológica",
-                     "Monumento Natural",                       
-                     "Refúgio de Vida Silvestre") ~ "PI", 
-      categoria%in%c("Reserva de Desenvolvimento Sustentável",  
-                     "Reserva Extrativista", 
-                     "Floresta", 
-                     "Reserva de Fauna") ~ "US")) %>% 
-  filter(cria_ano>=1991) %>% #1157
-  mutate(dum_yr_class=factor(case_when(
-    cria_ano>=1991 & cria_ano<=1995~"91_95",
-    cria_ano>=1996 & cria_ano<=2000~"96_00",
-    cria_ano>=2001 & cria_ano<=2005~"01_05", 
-    cria_ano>=2006 & cria_ano<=2010~"06_10", 
-    cria_ano>=2011 & cria_ano<=2015~"11_15",
-    cria_ano>=2016 & cria_ano<=2020~"16_20", 
-    TRUE ~ "21-25"), 
-    levels=c("91_95", "96_00", "01_05", "06_10",
-             "11_15", "16_20", "21-25"))) %>% 
-  st_drop_geometry() %>% 
-  group_by(biome, esfera, new_cat_2, dum_yr_class
-  ) %>% 
+    dum_yr=case_when(
+      new_cria_ano<=2022 ~ "ok",
+      new_cria_ano>=2023 & 
+        new_pl_manejo=="Não" ~ "ok",
+      new_cria_ano>=2023 & 
+        new_pl_manejo=="Sim" ~ "exclude")) %>%
+  filter(dum_yr!="exclude") %>% #dim() #-05=1199
+  filter(!pretreat_period%in%c(0, -1)) %>% #dim() #-17=1182
+  # filtering any PM created above 2023
+  filter(yr_PM<=2022) %>% #dim() #-58=1124
+  #continue
+  mutate(dum_yrPM_class=factor(case_when(
+    yr_PM>=1991 & yr_PM<=1994~"91_94",
+    yr_PM>=1995 & yr_PM<=1998~"95_98",
+    yr_PM>=1999 & yr_PM<=2002~"99_02", 
+    yr_PM>=2003 & yr_PM<=2006~"03_06", 
+    yr_PM>=2007 & yr_PM<=2010~"07_10",
+    yr_PM>=2011 & yr_PM<=2014~"11_14",
+    yr_PM>=2015 & yr_PM<=2018~"15_18",
+    yr_PM>=2019 & yr_PM<=2022~"19_22",
+    yr_PM==0 ~ "0",
+    TRUE ~ "tosee"), 
+    levels=c("91_94", "95_98", "99_02", "03_06",
+             "07_10", "11_14", "15_18", "19_22",
+             "0", "tosee"))) %>%
+  #filter(dum_yrPM_class=="tosee") %>% glimpse
+  group_by(biome, new_cat, new_pl_manejo, 
+           dum_yrPM_class) %>% 
   summarise(n_uc=n_distinct(new_code)) %>% 
-  print(n = 300)
+  print(n = 400)
 
-
-stp4_UC_br %>% 
+#general
+stp5_UC_br %>% #1204
+  #(unless two pos and pre - period)
   mutate(
-    new_cat_2=case_when(
-      categoria=="Área de Proteção Ambiental" ~ "APA", 
-      categoria%in%c("Estação Ecológica",
-                     "Parque",                                  
-                     "Reserva Biológica",
-                     "Monumento Natural",                       
-                     "Refúgio de Vida Silvestre") ~ "PI", 
-      categoria%in%c("Reserva de Desenvolvimento Sustentável",  
-                     "Reserva Extrativista", 
-                     "Floresta", 
-                     "Reserva de Fauna") ~ "US")) %>% 
-  filter(cria_ano>=1991) %>% #1157
-  mutate(dum_yr_class=factor(case_when(
-    cria_ano>=1991 & cria_ano<=1995~"91_95",
-    cria_ano>=1996 & cria_ano<=2000~"96_00",
-    cria_ano>=2001 & cria_ano<=2005~"01_05", 
-    cria_ano>=2006 & cria_ano<=2010~"06_10", 
-    cria_ano>=2011 & cria_ano<=2015~"11_15",
-    cria_ano>=2016 & cria_ano<=2020~"16_20", 
-    TRUE ~ "21-25"), 
-    levels=c("91_95", "96_00", "01_05", "06_10",
-             "11_15", "16_20", "21-25"))) %>% 
-  st_drop_geometry() %>% 
-  group_by(biome, new_cat_2, dum_yr_class
-  ) %>% 
+    dum_yr=case_when(
+      new_cria_ano<=2022 ~ "ok",
+      new_cria_ano>=2023 & 
+        new_pl_manejo=="Não" ~ "ok",
+      new_cria_ano>=2023 & 
+        new_pl_manejo=="Sim" ~ "exclude")) %>%
+  filter(dum_yr!="exclude") %>% #dim() #-05=1199
+  filter(!pretreat_period%in%c(0, -1)) %>% #dim() #-17=1182
+  # filtering any PM created above 2023
+  filter(yr_PM<=2022) %>% #dim() #-58=1124
+  #continue
+  mutate(dum_yrPM_class=factor(case_when(
+    yr_PM>=1991 & yr_PM<=1994~"91_94",
+    yr_PM>=1995 & yr_PM<=1998~"95_98",
+    yr_PM>=1999 & yr_PM<=2002~"99_02", 
+    yr_PM>=2003 & yr_PM<=2006~"03_06", 
+    yr_PM>=2007 & yr_PM<=2010~"07_10",
+    yr_PM>=2011 & yr_PM<=2014~"11_14",
+    yr_PM>=2015 & yr_PM<=2018~"15_18",
+    yr_PM>=2019 & yr_PM<=2022~"19_22",
+    yr_PM==0 ~ "0",
+    TRUE ~ "tosee"), 
+    levels=c("91_94", "95_98", "99_02", "03_06",
+             "07_10", "11_14", "15_18", "19_22",
+             "0", "tosee"))) %>%
+  #filter(dum_yrPM_class=="tosee") %>% glimpse
+  group_by(new_pl_manejo, 
+           dum_yrPM_class) %>% 
   summarise(n_uc=n_distinct(new_code)) %>% 
-  print(n = 300)
-  
+  print(n = 400)
 
-# saving 
 
-UC_br_end<-stp4_UC_br %>% 
+# a respeito dos pre-periods
+#stp5_UC_br %>% #1204
+  #(unless two pos and pre - period)
+#  mutate(
+#    dum_yr=case_when(
+#      new_cria_ano<=2022 ~ "ok",
+#      new_cria_ano>=2023 & 
+#        new_pl_manejo=="Não" ~ "ok",
+#      new_cria_ano>=2023 & 
+#        new_pl_manejo=="Sim" ~ "exclude")) %>%
+#  filter(dum_yr!="exclude") %>% #dim() #-05=1199
+#  filter(!pretreat_period%in%c(0, -1)) %>% #dim() #-17=1182
+  # filtering any PM created above 2023
+#  filter(yr_PM<=2022) %>% #dim() #-58=1124
+  #continue
+#  mutate(dum_yrPM_class=factor(case_when(
+#    yr_PM>=1991 & yr_PM<=1994~"91_94",
+#    yr_PM>=1995 & yr_PM<=1998~"95_98",
+#    yr_PM>=1999 & yr_PM<=2002~"99_02", 
+#    yr_PM>=2003 & yr_PM<=2006~"03_06", 
+#    yr_PM>=2007 & yr_PM<=2010~"07_10",
+#    yr_PM>=2011 & yr_PM<=2014~"11_14",
+#    yr_PM>=2015 & yr_PM<=2018~"15_18",
+#    yr_PM>=2019 & yr_PM<=2022~"19_22",
+#    yr_PM==0 ~ "0",
+#    TRUE ~ "tosee"), 
+#    levels=c("91_94", "95_98", "99_02", "03_06",
+#             "07_10", "11_14", "15_18", "19_22",
+#             "0", "tosee"))) %>%
+  #filter(dum_yrPM_class=="tosee") %>% glimpse
+#  group_by(new_pl_manejo, 
+#           dum_yrPM_class, pretreat_period) %>% 
+#  summarise(n_uc=n_distinct(new_code)) %>% 
+#  print(n = 400)
+
+
+#### saving ----
+UC_br_end<-stp5_UC_br %>% #1204
+  #(unless two pos and pre - period)
   mutate(
-    pa_type=case_when(
-      categoria=="Área de Proteção Ambiental" ~ "APA", 
-      categoria%in%c("Estação Ecológica",
-                     "Parque",                                  
-                     "Reserva Biológica",
-                     "Monumento Natural",                       
-                     "Refúgio de Vida Silvestre") ~ "PI", 
-      categoria%in%c("Reserva de Desenvolvimento Sustentável",  
-                     "Reserva Extrativista", 
-                     "Floresta", 
-                     "Reserva de Fauna") ~ "US")) %>% 
-  filter(cria_ano>=1991) %>% #dim()#1223
-  filter(!biome%in%c("Marinho", "pampa", "pantanal")) %>% #dim()#1204
-  mutate(first_year_t=case_when(
-  biome%in%c("caatinga", "cerrado") &
-    pa_type == "US" ~ "16", 
-  #gruping into 10 years
-  biome%in%c("amazonia", "caatinga") &
-    pa_type == "APA" &
-    cria_ano>=1991 & cria_ano<=2000 ~ "1991", 
-  biome%in%c("amazonia", "caatinga") & 
-    pa_type == "APA" &
-    cria_ano>=2001 & cria_ano<=2010 ~ "2001", 
-  biome%in%c("amazonia", "caatinga") & 
-    pa_type == "APA" &
-    cria_ano>=2011 & cria_ano<=2020 ~ "2011", 
-  #--
-  biome=="matlantica" & 
-    pa_type == "US" &
-    cria_ano<= 1995 ~ "2",
-  biome=="matlantica" &
-    pa_type == "US" &
-    cria_ano>=1996 & cria_ano<=2005 ~ "1996", 
-  biome=="matlantica" & 
-    pa_type == "US" &
-    cria_ano>=2006 & cria_ano<=2015 ~ "2006", 
-  biome=="matlantica" & 
-    pa_type == "US" &
-    cria_ano>=2016 ~ "2",
-  # fixing 5 years grouping
-  biome=="amazonia" & 
-    pa_type == "PI" &
-    cria_ano<=1995 ~ "4", 
-  biome=="amazonia" & 
-    pa_type == "PI" &
-    cria_ano>=2011 & cria_ano<=2015~ "4",
-  #--
-  biome=="amazonia" & 
-    pa_type == "US" &
-    cria_ano>=2011 & cria_ano<=2015~ "2",
-  #--
-  biome=="caatinga" & 
-    pa_type == "PI" &
-    cria_ano<=1995 ~ "1",
-  #--
-  biome=="cerrado" & 
-    pa_type == "APA" &
-    cria_ano<=1995 ~ "3",
-  biome=="cerrado" & 
-    pa_type == "APA" &
-    cria_ano>=2006 & cria_ano<=2015~ "5",
-  # general
-  cria_ano>=1991 & cria_ano<=1995~"1991",
-  cria_ano>=1996 & cria_ano<=2000~"1996",
-  cria_ano>=2001 & cria_ano<=2005~"2001", 
-  cria_ano>=2006 & cria_ano<=2010~"2006", 
-  cria_ano>=2011 & cria_ano<=2015~"2011",
-  cria_ano>=2016 & cria_ano<=2020~"2016", 
-  TRUE ~ "0"), 
-  across(c(new_code, biome, pa_type), 
-         ~as.factor(.))) %>%
-  select(-new_cat) %>%
-  filter(!first_year_t%in%c("1", "2", "3",
-                         "4", "5", "16")) %>% #1167 (lose 37)
-  mutate(first_year_t=as.integer(first_year_t)) %>% 
+    dum_yr=case_when(
+      new_cria_ano<=2022 ~ "ok",
+      new_cria_ano>=2023 & 
+        new_pl_manejo=="Não" ~ "ok",
+      new_cria_ano>=2023 & 
+        new_pl_manejo=="Sim" ~ "exclude")) %>%
+  filter(dum_yr!="exclude") %>% #dim() #-05=1199
+  filter(!pretreat_period%in%c(0, -1)) %>% #dim() #-17=1182
+  # filtering any PM created above 2023
+  filter(yr_PM<=2022) %>% #dim() #-58=1124
+  #continue
+  mutate(dum_yrPM_class=factor(case_when(
+    yr_PM>=1991 & yr_PM<=1994~"91_94",
+    yr_PM>=1995 & yr_PM<=1998~"95_98",
+    yr_PM>=1999 & yr_PM<=2002~"99_02", 
+    yr_PM>=2003 & yr_PM<=2006~"03_06", 
+    yr_PM>=2007 & yr_PM<=2010~"07_10",
+    yr_PM>=2011 & yr_PM<=2014~"11_14",
+    yr_PM>=2015 & yr_PM<=2018~"15_18",
+    yr_PM>=2019 & yr_PM<=2022~"19_22",
+    yr_PM==0 ~ "0",
+    TRUE ~ "tosee"), 
+    levels=c("91_94", "95_98", "99_02", "03_06",
+             "07_10", "11_14", "15_18", "19_22",
+             "0", "tosee"))) %>%
+  filter(!biome%in%c("pampa", "pantanal",
+                     "Marinho")) %>% #dim() #-17=1107
+  filter(!(biome=="caatinga" & new_cat=="US")) %>% #dim()#-1=1106
+  filter(!(biome=="amazonia" & 
+             new_cat=="PI" &
+             dum_yrPM_class%in%c("99_02",
+                                 "03_06"))) %>% #dim()#-2=1104
+  filter(!(biome=="cerrado" & 
+             new_cat=="APA" &
+             dum_yrPM_class%in%c("95_98",
+                                 "11_14"))) %>% #dim()#-2=1102
+  filter(!(biome=="cerrado" & 
+             new_cat=="PI" &
+             dum_yrPM_class=="99_02")) %>% #dim()#-1=1101
+  filter(!(biome=="matlantica" & 
+             new_cat=="PI" &
+             dum_yrPM_class=="99_02")) %>% #dim()#-1=1100
   glimpse
 
-#crs=4674
-write_sf(UC_br_end, "Outputs/PA_br.gpkg")
+
+UC_br_end_geom<-UC_br_end %>% 
+  left_join(stp4_UC_br %>% select(new_code),
+            by="new_code") %>%
+  st_as_sf() %>% 
+  #st_crs()#4674
+  #mutate(test_geom=st_is_valid(geometry)) %>% 
+  #filter(test_geom==F) %>% #none
+  glimpse
+
+saveRDS(UC_br_end, "Outputs/PA_br.rds")
+write_sf(UC_br_end_geom, "Outputs/PA_br.gpkg")
+
 
